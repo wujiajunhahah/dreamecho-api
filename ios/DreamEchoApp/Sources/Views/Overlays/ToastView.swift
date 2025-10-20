@@ -36,7 +36,7 @@ private struct ToastModifier: ViewModifier {
                 }
             }
         }
-        .onChange(of: message) { _, newValue in
+        .onChange(of: message) { newValue in
             guard newValue != nil else { return }
             withAnimation(.spring()) { isPresented = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {

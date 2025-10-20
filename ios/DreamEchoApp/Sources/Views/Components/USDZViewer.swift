@@ -1,6 +1,7 @@
 import SwiftUI
 import QuickLook
 import ARKit
+import RealityKit
 
 struct USDZViewer: View {
     let url: URL?

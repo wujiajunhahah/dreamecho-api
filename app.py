@@ -28,7 +28,7 @@ import string
 load_dotenv()
 
 # API密钥
-DEEPSEEK_API_KEY = "sk-04c0e5cad3ed4ea0bbf0d2344f7f8216"
+DEEPSEEK_API_KEY = "sk-586e842eecfc45ba92eeceebed9b76dd"
 TRIPO_API_KEY = "tsk_Ep2Vvovn4vAMITNVEjFjOacWy3jfuQtwIzJWV5lsS2T"
 
 app = Flask(__name__)

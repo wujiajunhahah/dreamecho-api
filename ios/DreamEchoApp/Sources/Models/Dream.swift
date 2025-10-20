@@ -104,9 +104,9 @@ struct User: Codable {
 
 extension Dream {
     static let showcase: [Dream] = [
-        Dream(title: "云海玻璃花园", description: "漂浮在云端的液态玻璃温室，星光植物随呼吸闪烁。", status: .completed, tags: ["梦境", "自然"], price: 0.24, royalty: 5, blockchain: .ethereum),
-        Dream(title: "霓虹流星骑士", description: "穿梭霓虹迷宫的蒸汽朋克骑士，披风由流星光编织而成。", status: .completed, tags: ["角色", "赛博朋克"], price: 0.18, royalty: 4, blockchain: .polygon),
-        Dream(title: "水墨龙魂", description: "从东方墨色中觉醒的龙魂，萦绕着古老的钟声。", status: .completed, tags: ["东方", "神话"], price: 0.32, royalty: 6, blockchain: .bsc)
+        Dream(title: "云海玻璃花园", description: "漂浮在云端的液态玻璃温室，星光植物随呼吸闪烁。", status: .completed, tags: ["梦境", "自然"], blockchain: .ethereum, price: 0.24, royalty: 5),
+        Dream(title: "霓虹流星骑士", description: "穿梭霓虹迷宫的蒸汽朋克骑士，披风由流星光编织而成。", status: .completed, tags: ["角色", "赛博朋克"], blockchain: .polygon, price: 0.18, royalty: 4),
+        Dream(title: "水墨龙魂", description: "从东方墨色中觉醒的龙魂，萦绕着古老的钟声。", status: .completed, tags: ["东方", "神话"], blockchain: .bsc, price: 0.32, royalty: 6)
     ]
 
     static let pendingSamples: [Dream] = [
