@@ -15,8 +15,8 @@ final class DreamService: ObservableObject {
     func refresh() async {
         do {
             let dreams = try await apiClient.fetchDreams()
-            pending = dreams.filter { $0.isPending }
-            completed = dreams.filter { !$0.isPending }
+            pending = dreams.filter { $0.status.isPending }
+            completed = dreams.filter { !$0.status.isPending }
             lastError = nil
         } catch {
             lastError = error.localizedDescription
@@ -29,7 +29,7 @@ final class DreamService: ObservableObject {
         return dream
     }
 
-    func watchProgress(for dream: Dream) -> AsyncThrowingStream<DreamProgressEvent, Error> {
+    nonisolated func watchProgress(for dream: Dream) -> AsyncThrowingStream<DreamProgressEvent, Error> {
         apiClient.streamEvents(for: dream.id)
     }
 
@@ -37,7 +37,7 @@ final class DreamService: ObservableObject {
         let updated = try await apiClient.pollDream(id: id)
         pending.removeAll { $0.id == id }
         completed.removeAll { $0.id == id }
-        if updated.isPending {
+        if updated.status.isPending {
             pending.append(updated)
         } else {
             completed.append(updated)

@@ -36,7 +36,7 @@ actor APIClient {
     }
 
     func fetchSession() async throws -> UserSession {
-        try await request(path: "/api/session", method: .get)
+        try await request(path: "/api/session", method: .get) as UserSession
     }
 
     func logout() async {
@@ -44,7 +44,7 @@ actor APIClient {
     }
 
     func fetchDreams() async throws -> [Dream] {
-        try await request(path: "/api/dreams", method: .get)
+        try await request(path: "/api/dreams", method: .get) as [Dream]
     }
 
     func submitDream(_ payload: DreamCreationRequest) async throws -> Dream {
@@ -52,7 +52,7 @@ actor APIClient {
     }
 
     func pollDream(id: UUID) async throws -> Dream {
-        try await request(path: "/api/dreams/\(id.uuidString)", method: .get)
+        try await request(path: "/api/dreams/\(id.uuidString)", method: .get) as Dream
     }
 
     func streamEvents(for id: UUID) -> AsyncThrowingStream<DreamProgressEvent, Error> {

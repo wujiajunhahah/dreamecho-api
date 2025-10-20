@@ -1,7 +1,5 @@
 import SwiftUI
 import QuickLook
-import ARKit
-import RealityKit
 
 struct USDZViewer: View {
     let url: URL?
@@ -9,86 +7,80 @@ struct USDZViewer: View {
 
     var body: some View {
         ZStack {
-            if let url {
-                RealityPreview(url: url)
-                    .onTapGesture { showQuickLook = true }
-                    .sheet(isPresented: $showQuickLook) {
-                        QuickLookPreview(url: url)
+            if let url = url {
+                Button(action: { showQuickLook = true }) {
+                    VStack(spacing: 16) {
+                        Image(systemName: "cube.transparent")
+                            .font(.system(size: 60))
+                            .foregroundStyle(.linearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        
+                        Text("点击查看3D模型")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                        
+                        Text("支持AR预览")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.7))
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                }
+                .sheet(isPresented: $showQuickLook) {
+                    QuickLookPreview(url: url)
+                        .ignoresSafeArea()
+                }
             } else {
-                Placeholder()
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .tint(.white)
+                    Text("正在加载模型...")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
             }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .glassBorder()
-    }
-}
-
-private struct Placeholder: View {
-    var body: some View {
-        VStack(spacing: 12) {
-            ProgressView()
-            Text("正在加载 USDZ")
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.ultraThinMaterial)
-    }
-}
-
-private struct RealityPreview: UIViewRepresentable {
-    let url: URL
-
-    func makeUIView(context: Context) -> ARView {
-        let view = ARView(frame: .zero)
-        view.environment.background = .color(.black)
-        Task { await loadModel(into: view) }
-        return view
-    }
-
-    func updateUIView(_ uiView: ARView, context: Context) {}
-
-    private func loadModel(into view: ARView) async {
-        do {
-            let entity = try await ModelEntity.loadAsync(contentsOf: url)
-            let anchor = AnchorEntity(world: .zero)
-            entity.scale = SIMD3<Float>(repeating: 0.6)
-            anchor.addChild(entity)
-            view.scene.anchors.removeAll()
-            view.scene.addAnchor(anchor)
-        } catch {
-            print("USDZ load error: \(error)")
         }
     }
 }
 
 private struct QuickLookPreview: UIViewControllerRepresentable {
     let url: URL
-
+    
     func makeUIViewController(context: Context) -> QLPreviewController {
         let controller = QLPreviewController()
         controller.dataSource = context.coordinator
         return controller
     }
-
-    func updateUIViewController(_ controller: QLPreviewController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator { Coordinator(url: url) }
-
-    final class Coordinator: NSObject, QLPreviewControllerDataSource {
-        private let item: QLPreviewItemWrapper
-
+    
+    func updateUIViewController(_ uiViewController: QLPreviewController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(url: url)
+    }
+    
+    class Coordinator: NSObject, QLPreviewControllerDataSource {
+        let url: URL
+        
         init(url: URL) {
-            item = QLPreviewItemWrapper(url: url)
+            self.url = url
         }
-
-        func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
-
-        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem { item }
-
-        private final class QLPreviewItemWrapper: NSObject, QLPreviewItem {
-            let previewItemURL: URL?
-            init(url: URL) { previewItemURL = url }
+        
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
+            1
+        }
+        
+        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
+            url as QLPreviewItem
         }
     }
+}
+
+#Preview {
+    USDZViewer(url: Bundle.main.url(forResource: "sample", withExtension: "usdz"))
+        .frame(height: 300)
+        .padding()
+        .background(.black)
 }

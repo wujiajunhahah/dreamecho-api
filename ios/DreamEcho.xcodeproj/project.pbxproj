@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 56;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -42,7 +42,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		03F92CB74FCE323F6100343B /* DreamEcho.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DreamEcho.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		03F92CB74FCE323F6100343B /* DreamEcho.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DreamEcho.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		07C9DA004552518770BFAA9F /* DreamEchoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DreamEchoApp.swift; sourceTree = "<group>"; };
 		0B3D5F1D8189AA0C6DC01FE6 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		18B6D6159508F1869AB275D8 /* USDZViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = USDZViewer.swift; sourceTree = "<group>"; };
@@ -58,7 +58,7 @@
 		8FDC59E50AF9198B1BE06B71 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		98333651AB04319101AAB82B /* ToastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastView.swift; sourceTree = "<group>"; };
 		A4AB17E5355FDA9EF729379E /* DreamLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DreamLibraryView.swift; sourceTree = "<group>"; };
-		ABF5373431E355E1D2F0A228 /* DreamEchoTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DreamEchoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		ABF5373431E355E1D2F0A228 /* DreamEcho.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DreamEcho.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BACD7B82472433DA73725578 /* DreamStepIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DreamStepIndicator.swift; sourceTree = "<group>"; };
 		C745A5FECA0BF6CA73E3B544 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		DDF6CA7D2032FBAA47231CCF /* HapticsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticsManager.swift; sourceTree = "<group>"; };
@@ -109,7 +109,6 @@
 			children = (
 				85238BB47144A3B79323A570 /* DreamEchoAppTests.swift */,
 			);
-			name = Tests;
 			path = Tests;
 			sourceTree = "<group>";
 		};
@@ -117,7 +116,7 @@
 			isa = PBXGroup;
 			children = (
 				03F92CB74FCE323F6100343B /* DreamEcho.app */,
-				ABF5373431E355E1D2F0A228 /* DreamEchoTests.xctest */,
+				ABF5373431E355E1D2F0A228 /* DreamEcho.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -207,7 +206,6 @@
 				1F6FCED3D09FB8E1F893B525 /* ViewModels */,
 				F9E966D9EE637F332432E280 /* Views */,
 			);
-			name = Sources;
 			path = Sources;
 			sourceTree = "<group>";
 		};
@@ -252,7 +250,7 @@
 			);
 			name = DreamEchoTests;
 			productName = DreamEchoTests;
-			productReference = ABF5373431E355E1D2F0A228 /* DreamEchoTests.xctest */;
+			productReference = ABF5373431E355E1D2F0A228 /* DreamEcho.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -263,14 +261,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1500;
-				TargetAttributes = {
-					15B8D78AF3ACEF5421A44DFE = {
-						DevelopmentTeam = DRM95Z373U;
-					};
-					DB82A6D8462ABC9EF2DAB4BD = {
-						DevelopmentTeam = DRM95Z373U;
-					};
-				};
 			};
 			buildConfigurationList = E72CA4D3F218E9643A2E9502 /* Build configuration list for PBXProject "DreamEcho" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -403,6 +393,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = M4T239BM58;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -418,6 +409,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = M4T239BM58;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -435,6 +427,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_ASSET_PATHS = "\"DreamEchoApp/Preview Content\"";
+				DEVELOPMENT_TEAM = M4T239BM58;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = DreamEchoApp/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -520,6 +513,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_ASSET_PATHS = "\"DreamEchoApp/Preview Content\"";
+				DEVELOPMENT_TEAM = M4T239BM58;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = DreamEchoApp/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

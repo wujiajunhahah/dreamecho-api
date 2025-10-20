@@ -28,9 +28,9 @@ private struct StepItem: View {
         VStack(spacing: 6) {
             ZStack {
                 Circle()
-                    .fill(isActive ? LinearGradient.dreamecho : Color.white.opacity(0.06))
+                    .fill(isActive ? AnyShapeStyle(LinearGradient.dreamecho) : AnyShapeStyle(Color.white.opacity(0.06)))
                     .frame(width: 30, height: 30)
-                    .overlay(Circle().stroke(isCompleted ? LinearGradient.dreamecho : Color.white.opacity(0.2), lineWidth: 1.5))
+                    .overlay(Circle().stroke(isCompleted ? AnyShapeStyle(LinearGradient.dreamecho) : AnyShapeStyle(Color.white.opacity(0.2)), lineWidth: 1.5))
                 if isCompleted {
                     Image(systemName: "checkmark")
                         .foregroundStyle(.white)

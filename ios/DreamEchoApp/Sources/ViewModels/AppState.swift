@@ -13,7 +13,7 @@ final class AppState: ObservableObject {
     private let authService: AuthService
     private let dreamService: DreamService
 
-    init(authService: AuthService = AuthService(), dreamService: DreamService = DreamService()) {
+    nonisolated init(authService: AuthService = AuthService(), dreamService: DreamService = DreamService()) {
         self.authService = authService
         self.dreamService = dreamService
     }
