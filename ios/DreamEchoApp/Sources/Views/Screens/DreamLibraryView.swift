@@ -24,68 +24,72 @@ struct DreamLibraryView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
-                    LibraryHeader(completed: appState.completedDreams.count, pending: appState.pendingDreams.count, showcase: Dream.showcase.count)
-
-                    Picker("梦境视图", selection: $segment) {
-                        ForEach(LibrarySegment.allCases, id: \.self) { segment in
-                            Text(segment.title).tag(segment)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .glassBorder()
-
-                    if filteredDreams.isEmpty {
-                        EmptyState(segment: segment)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 48)
-                    } else {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 24)], spacing: 24) {
-                            ForEach(filteredDreams) { dream in
-                                DreamCard(dream: dream)
-                                    .onTapGesture {
-                                        appState.selectedDream = dream
-                                        appState.showARViewer = true
-                                    }
+        if #available(iOS 17.0, *) {
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 28) {
+                        LibraryHeader(completed: appState.completedDreams.count, pending: appState.pendingDreams.count, showcase: Dream.showcase.count)
+                        
+                        Picker("梦境视图", selection: $segment) {
+                            ForEach(LibrarySegment.allCases, id: \.self) { segment in
+                                Text(segment.title).tag(segment)
                             }
                         }
-                        .animation(.spring(response: 0.45, dampingFraction: 0.78), value: filteredDreams)
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 60)
-                .padding(.top, 16)
-            }
-            .background(LinearGradient(colors: [.dreamechoBackground, Color.black], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea())
-            .navigationTitle("梦境档案")
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索标题或标签")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        Task { await refresh() }
-                    } label: {
-                        if isRefreshing {
-                            ProgressView()
+                        .pickerStyle(.segmented)
+                        .glassBorder()
+                        
+                        if filteredDreams.isEmpty {
+                            EmptyState(segment: segment)
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 48)
                         } else {
-                            Label("刷新", systemImage: "arrow.clockwise")
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 24)], spacing: 24) {
+                                ForEach(filteredDreams) { dream in
+                                    DreamCard(dream: dream)
+                                        .onTapGesture {
+                                            appState.selectedDream = dream
+                                            appState.showARViewer = true
+                                        }
+                                }
+                            }
+                            .animation(.spring(response: 0.45, dampingFraction: 0.78), value: filteredDreams)
                         }
                     }
-                    .disabled(isRefreshing)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 60)
+                    .padding(.top, 16)
+                }
+                .background(LinearGradient(colors: [.dreamechoBackground, Color.black], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea())
+                .navigationTitle("梦境档案")
+                .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索标题或标签")
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            Task { await refresh() }
+                        } label: {
+                            if isRefreshing {
+                                ProgressView()
+                            } else {
+                                Label("刷新", systemImage: "arrow.clockwise")
+                            }
+                        }
+                        .disabled(isRefreshing)
+                    }
+                }
+                .sheet(isPresented: $appState.showARViewer) {
+                    if let dream = appState.selectedDream {
+                        DreamDetailView(dream: dream, isPresented: $appState.showARViewer)
+                            .presentationDetents([.large])
+                    }
                 }
             }
-            .sheet(isPresented: $appState.showARViewer) {
-                if let dream = appState.selectedDream {
-                    DreamDetailView(dream: dream, isPresented: $appState.showARViewer)
-                        .presentationDetents([.large])
-                }
+            .toast(message: $toastMessage)
+            .task { await refresh() }
+            .onChange(of: appState.lastError) { _, newValue in
+                toastMessage = newValue
             }
-        }
-        .toast(message: $toastMessage)
-        .task { await refresh() }
-        .onChange(of: appState.lastError) { _, newValue in
-            toastMessage = newValue
+        } else {
+            // Fallback on earlier versions
         }
     }
 

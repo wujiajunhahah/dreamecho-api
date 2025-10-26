@@ -36,7 +36,7 @@ actor APIClient {
     }
 
     func fetchSession() async throws -> UserSession {
-        try await request(path: "/api/session", method: .get) as UserSession
+        try await request(path: "/api/session", method: .get)
     }
 
     func logout() async {
@@ -44,7 +44,7 @@ actor APIClient {
     }
 
     func fetchDreams() async throws -> [Dream] {
-        try await request(path: "/api/dreams", method: .get) as [Dream]
+        try await request(path: "/api/dreams", method: .get)
     }
 
     func submitDream(_ payload: DreamCreationRequest) async throws -> Dream {
@@ -52,7 +52,7 @@ actor APIClient {
     }
 
     func pollDream(id: UUID) async throws -> Dream {
-        try await request(path: "/api/dreams/\(id.uuidString)", method: .get) as Dream
+        try await request(path: "/api/dreams/\(id.uuidString)", method: .get)
     }
 
     func streamEvents(for id: UUID) -> AsyncThrowingStream<DreamProgressEvent, Error> {
@@ -128,6 +128,12 @@ actor APIClient {
             let errorMessage = (try? decoder.decode(APIMessage.self, from: data))?.message
             throw APIError.server(http.statusCode, message: errorMessage)
         }
+    }
+
+    // 无Body重载，解决泛型 Body 推断报错
+    @discardableResult
+    private func request<Response: Decodable>(path: String, method: HTTPMethod) async throws -> Response {
+        try await request(path: path, method: method, body: Optional<Data>.none as Data?)
     }
 }
 

@@ -5,8 +5,8 @@ final class AuthService: ObservableObject {
     @Published private(set) var session: UserSession?
     private let apiClient: APIClient
 
-    init(apiClient: APIClient = APIClient()) {
-        self.apiClient = apiClient
+    init(apiClient: APIClient? = nil) {
+        self.apiClient = apiClient ?? APIClient()
     }
 
     func bootstrap() async {

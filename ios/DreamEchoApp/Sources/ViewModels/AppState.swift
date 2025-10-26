@@ -13,9 +13,9 @@ final class AppState: ObservableObject {
     private let authService: AuthService
     private let dreamService: DreamService
 
-    nonisolated init(authService: AuthService = AuthService(), dreamService: DreamService = DreamService()) {
-        self.authService = authService
-        self.dreamService = dreamService
+    init(authService: AuthService? = nil, dreamService: DreamService? = nil) {
+        self.authService = authService ?? AuthService()
+        self.dreamService = dreamService ?? DreamService()
     }
 
     func bootstrap() async {

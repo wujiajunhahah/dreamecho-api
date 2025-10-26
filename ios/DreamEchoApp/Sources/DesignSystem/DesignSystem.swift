@@ -30,6 +30,20 @@ struct GlassButtonStyle: ButtonStyle {
     }
 }
 
+struct PrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(Color.white)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 16)
+            .background(LinearGradient.dreamecho)
+            .clipShape(Capsule())
+            .shadow(color: .dreamechoPrimary.opacity(configuration.isPressed ? 0.25 : 0.4), radius: configuration.isPressed ? 10 : 16, y: configuration.isPressed ? 4 : 8)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.spring(response: 0.32, dampingFraction: 0.82), value: configuration.isPressed)
+    }
+}
+
 extension View {
     func glassBorder(cornerRadius: CGFloat = 28) -> some View {
         overlay(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).stroke(Color.dreamechoGlassBorder, lineWidth: 1))

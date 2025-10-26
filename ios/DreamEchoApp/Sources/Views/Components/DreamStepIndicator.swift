@@ -43,7 +43,7 @@ private struct StepItem: View {
             }
             Text(step.displayTitle)
                 .font(.caption2)
-                .foregroundStyle(isActive ? LinearGradient.dreamecho : .secondary)
+                .foregroundStyle(isActive ? AnyShapeStyle(LinearGradient.dreamecho) : AnyShapeStyle(Color.secondary))
         }
     }
 }

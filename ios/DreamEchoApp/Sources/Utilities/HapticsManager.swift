@@ -2,6 +2,7 @@ import Foundation
 #if canImport(UIKit)
 import UIKit
 
+@MainActor
 final class HapticsManager {
     static let shared = HapticsManager(configuration: .shared)
 

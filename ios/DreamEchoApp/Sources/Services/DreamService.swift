@@ -8,8 +8,8 @@ final class DreamService: ObservableObject {
 
     private let apiClient: APIClient
 
-    init(apiClient: APIClient = APIClient()) {
-        self.apiClient = apiClient
+    init(apiClient: APIClient? = nil) {
+        self.apiClient = apiClient ?? APIClient()
     }
 
     func refresh() async {
@@ -29,8 +29,8 @@ final class DreamService: ObservableObject {
         return dream
     }
 
-    nonisolated func watchProgress(for dream: Dream) -> AsyncThrowingStream<DreamProgressEvent, Error> {
-        apiClient.streamEvents(for: dream.id)
+    func watchProgress(for dream: Dream) async -> AsyncThrowingStream<DreamProgressEvent, Error> {
+        await apiClient.streamEvents(for: dream.id)
     }
 
     func reloadDream(with id: UUID) async throws -> Dream {

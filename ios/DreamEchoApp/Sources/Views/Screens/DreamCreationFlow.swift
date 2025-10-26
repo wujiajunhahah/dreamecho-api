@@ -7,16 +7,23 @@ struct DreamCreationFlow: View {
     @State private var showResetAlert = false
 
     var body: some View {
-        NavigationStack(path: $viewModel.path) {
-            stepView(for: viewModel.currentStep)
-                .navigationDestination(for: DreamCreationStep.self) { step in
-                    stepView(for: step)
-                }
-                .navigationTitle(viewModel.currentStep.navigationTitle)
-                .navigationBarBackButtonHidden(true)
-                .toolbarBackground(.visible, for: .navigationBar)
-                .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
-                .toolbar { toolbarContent }
+        ZStack {
+            LinearGradient(colors: [.dreamechoBackground, Color.black], startPoint: .topLeading, endPoint: .bottomTrailing)
+                .ignoresSafeArea()
+            ParticleBackground()
+                .ignoresSafeArea()
+            NavigationStack(path: $viewModel.path) {
+                stepView(for: viewModel.currentStep)
+                    .navigationDestination(for: DreamCreationStep.self) { step in
+                        stepView(for: step)
+                    }
+                    .navigationTitle(viewModel.currentStep.navigationTitle)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .navigationBarBackButtonHidden(true)
+                    .toolbarBackground(.visible, for: .navigationBar)
+                    .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+                    .toolbar { toolbarContent }
+            }
         }
         .toast(message: $viewModel.toastMessage)
         .task { viewModel.bind(appState: appState, coordinator: coordinator) }
@@ -123,8 +130,8 @@ final class DreamCreationViewModel: ObservableObject {
     private let dreamService: DreamService
     private var progressTask: Task<Void, Never>?
 
-    init(dreamService: DreamService = DreamService()) {
-        self.dreamService = dreamService
+    init(dreamService: DreamService? = nil) {
+        self.dreamService = dreamService ?? DreamService()
     }
 
     func bind(appState: AppState, coordinator: NavigationCoordinator) {
@@ -203,7 +210,7 @@ final class DreamCreationViewModel: ObservableObject {
 
     private func listen(for dream: Dream) async throws {
         do {
-            for try await event in dreamService.watchProgress(for: dream) {
+            for try await event in await dreamService.watchProgress(for: dream) {
                 progress = event.progress
                 statusMessage = event.message ?? event.status.progressMessage
             }
@@ -281,13 +288,14 @@ private struct DreamDescriptionStep: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                 }
-                .buttonStyle(GlassButtonStyle())
+                .buttonStyle(PrimaryButtonStyle())
                 .disabled(viewModel.title.isEmpty || viewModel.description.isEmpty)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
+            .frame(maxWidth: 820)
         }
-        .background(LinearGradient(colors: [.dreamechoBackground, Color.black], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea())
+        .background(Color.clear)
     }
 }
 
@@ -330,12 +338,13 @@ private struct DreamStylingStep: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                 }
-                .buttonStyle(GlassButtonStyle())
+                .buttonStyle(PrimaryButtonStyle())
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
+            .frame(maxWidth: 820)
         }
-        .background(LinearGradient(colors: [.dreamechoBackground, Color.black], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea())
+        .background(Color.clear)
     }
 }
 
@@ -355,13 +364,14 @@ private struct DreamReviewStep: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                 }
-                .buttonStyle(GlassButtonStyle())
+                .buttonStyle(PrimaryButtonStyle())
                 .disabled(viewModel.isSubmitting)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
+            .frame(maxWidth: 820)
         }
-        .background(LinearGradient(colors: [.dreamechoBackground, Color.black], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea())
+        .background(Color.clear)
     }
 }
 
@@ -397,12 +407,13 @@ private struct DreamProgressStep: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                 }
-                .buttonStyle(GlassButtonStyle())
+                .buttonStyle(PrimaryButtonStyle())
             }
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 40)
-        .background(LinearGradient(colors: [.dreamechoBackground, Color.black], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea())
+        .frame(maxWidth: 820)
+        .background(Color.clear)
     }
 }
 
