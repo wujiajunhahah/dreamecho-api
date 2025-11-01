@@ -13,6 +13,7 @@ python-magic==0.4.27
 validators==0.22.0
 WTForms==3.1.1
 gunicorn==21.2.0
+gevent==24.2.1
 tenacity==8.2.3
 tqdm==4.66.1
 flask-bootstrap==3.3.7.1

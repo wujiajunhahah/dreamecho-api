@@ -418,6 +418,76 @@ class DreamToModelConverter:
 
 # GLB转换函数已移除，现在直接使用GLB格式
 
+@app.cli.command("seed-demo")
+def seed_demo():
+    """创建演示数据（不会创建弱密码账号）"""
+    import secrets
+    from werkzeug.security import generate_password_hash
+    
+    try:
+        # 创建演示用户（使用强密码）
+        demo_password = secrets.token_urlsafe(16)  # 生成强随机密码
+        demo_user = User(
+            username="demo_user",
+            email="demo@dreamecho.ai",
+            password_hash=generate_password_hash(demo_password),
+            is_active=True
+        )
+        
+        # 检查是否已存在
+        if User.query.filter_by(username="demo_user").first():
+            print("演示用户已存在，跳过创建")
+            return
+        
+        db.session.add(demo_user)
+        db.session.commit()
+        
+        print(f"✅ 演示用户创建成功！")
+        print(f"   用户名: demo_user")
+        print(f"   密码: {demo_password}")
+        print(f"   ⚠️  请妥善保存密码，此密码仅显示一次")
+        
+        # 创建一些演示梦境
+        demo_dreams = [
+            {
+                "title": "星空下的梦境",
+                "description": "在一个宁静的夜晚，我梦见自己在星空下漫步，周围是闪烁的星星和银河。",
+                "status": "completed",
+                "is_public": True
+            },
+            {
+                "title": "海底世界",
+                "description": "我梦见自己潜入深海，看到了五彩斑斓的珊瑚和游动的鱼群。",
+                "status": "completed",
+                "is_public": True
+            },
+            {
+                "title": "森林奇遇",
+                "description": "在茂密的森林中，我遇到了各种神秘的生物，它们友好地向我打招呼。",
+                "status": "completed",
+                "is_public": True
+            }
+        ]
+        
+        for dream_data in demo_dreams:
+            dream = Dream(
+                user_id=demo_user.id,
+                title=dream_data["title"],
+                description=dream_data["description"],
+                dream_text=dream_data["description"],
+                status=dream_data["status"],
+                is_public=dream_data["is_public"]
+            )
+            db.session.add(dream)
+        
+        db.session.commit()
+        print(f"✅ 创建了 {len(demo_dreams)} 个演示梦境")
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ 创建演示数据失败: {str(e)}")
+        raise
+
 @app.cli.command("create-admin")
 def create_admin():
     """创建管理员账号"""
