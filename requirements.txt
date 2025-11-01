@@ -8,7 +8,7 @@ requests==2.31.0
 Werkzeug==3.0.1
 SQLAlchemy==2.0.23
 bcrypt==4.1.1
-Pillow>=10.2.0
+Pillow>=10.3.0
 python-magic==0.4.27
 validators==0.22.0
 WTForms==3.1.1
