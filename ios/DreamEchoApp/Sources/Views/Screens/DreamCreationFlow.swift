@@ -8,21 +8,18 @@ struct DreamCreationFlow: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [.dreamechoBackground, Color.black], startPoint: .topLeading, endPoint: .bottomTrailing)
-                .ignoresSafeArea()
-            ParticleBackground()
-                .ignoresSafeArea()
-            NavigationStack(path: $viewModel.path) {
-                stepView(for: viewModel.currentStep)
-                    .navigationDestination(for: DreamCreationStep.self) { step in
-                        stepView(for: step)
-                    }
-                    .navigationTitle(viewModel.currentStep.navigationTitle)
+            Color.dreamechoBackground.ignoresSafeArea()
+        NavigationStack(path: $viewModel.path) {
+            stepView(for: viewModel.currentStep)
+                .navigationDestination(for: DreamCreationStep.self) { step in
+                    stepView(for: step)
+                }
+                .navigationTitle(viewModel.currentStep.navigationTitle)
                     .navigationBarTitleDisplayMode(.inline)
-                    .navigationBarBackButtonHidden(true)
-                    .toolbarBackground(.visible, for: .navigationBar)
-                    .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
-                    .toolbar { toolbarContent }
+                .navigationBarBackButtonHidden(true)
+                .toolbarBackground(.visible, for: .navigationBar)
+                .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+                .toolbar { toolbarContent }
             }
         }
         .toast(message: $viewModel.toastMessage)
@@ -44,6 +41,8 @@ struct DreamCreationFlow: View {
                 } label: {
                     Label("清空", systemImage: "arrow.counterclockwise")
                 }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.dreamechoPrimary)
                 .disabled(!viewModel.canReset)
             } else {
                 Button {
@@ -51,6 +50,8 @@ struct DreamCreationFlow: View {
                 } label: {
                     Label("返回", systemImage: "chevron.left")
                 }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.dreamechoPrimary)
             }
         }
 
@@ -59,6 +60,8 @@ struct DreamCreationFlow: View {
                 Button("完成") {
                     viewModel.finish()
                 }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.dreamechoPrimary)
             }
         }
     }
@@ -117,7 +120,7 @@ final class DreamCreationViewModel: ObservableObject {
     @Published var description = ""
     @Published var selectedMood: Mood = .serene
     @Published var selectedStyle: Style = .ethereal
-    @Published var selectedBlockchain: BlockchainOption = .ethereum
+    // 去币化：移除区块链选择
     @Published var tags: [String] = []
 
     @Published var isSubmitting = false
@@ -140,7 +143,7 @@ final class DreamCreationViewModel: ObservableObject {
     }
 
     var canReset: Bool {
-        !title.isEmpty || !description.isEmpty || !tags.isEmpty || selectedMood != .serene || selectedStyle != .ethereal || selectedBlockchain != .ethereum
+        !title.isEmpty || !description.isEmpty || !tags.isEmpty || selectedMood != .serene || selectedStyle != .ethereal
     }
 
     func goToStyling() {
@@ -173,7 +176,7 @@ final class DreamCreationViewModel: ObservableObject {
         progressTask?.cancel()
         progressTask = Task {
             do {
-                let request = DreamCreationRequest(title: title, description: description, style: selectedStyle.rawValue, mood: selectedMood.rawValue, blockchain: selectedBlockchain, tags: tags)
+                let request = DreamCreationRequest(title: title, description: description, style: selectedStyle.rawValue, mood: selectedMood.rawValue, tags: tags)
                 let dream = try await dreamService.submit(request: request)
                 statusMessage = "模型生成中"
                 await appState?.refreshDreams()
@@ -194,7 +197,6 @@ final class DreamCreationViewModel: ObservableObject {
         description = ""
         selectedMood = .serene
         selectedStyle = .ethereal
-        selectedBlockchain = .ethereum
         tags = []
         statusMessage = "准备就绪"
         progress = 0
@@ -267,7 +269,7 @@ private struct DreamDescriptionStep: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: Layout.verticalSectionSpacing) {
                 StepHeader(step: .description, active: viewModel.currentStep)
                 VStack(spacing: 18) {
                     TextField("梦境标题", text: $viewModel.title)
@@ -275,10 +277,7 @@ private struct DreamDescriptionStep: View {
                     DreamEditor(text: $viewModel.description)
                     TagInputField(tags: $viewModel.tags, draft: $tagDraft)
                 }
-                .padding(24)
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .glassBorder()
+                .glassCard()
 
                 Button {
                     viewModel.goToStyling()
@@ -290,10 +289,12 @@ private struct DreamDescriptionStep: View {
                 }
                 .buttonStyle(PrimaryButtonStyle())
                 .disabled(viewModel.title.isEmpty || viewModel.description.isEmpty)
+                .accessibilityLabel("继续到下一步")
+                .accessibilityHint("填写标题和描述后可以继续")
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, Layout.horizontalPadding)
             .padding(.bottom, 40)
-            .frame(maxWidth: 820)
+            .frame(maxWidth: Layout.containerMaxWidth)
         }
         .background(Color.clear)
     }
@@ -304,7 +305,7 @@ private struct DreamStylingStep: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: Layout.verticalSectionSpacing) {
                 StepHeader(step: .styling, active: viewModel.currentStep)
                 VStack(spacing: 16) {
                     PickerSection(title: "梦境情绪") {
@@ -319,16 +320,9 @@ private struct DreamStylingStep: View {
                         }
                         .pickerStyle(.segmented)
                     }
-                    PickerSection(title: "区块链部署") {
-                        Picker("区块链", selection: $viewModel.selectedBlockchain) {
-                            ForEach(BlockchainOption.allCases) { option in Text(option.displayName).tag(option) }
-                        }
-                    }
+                    // 去币化：移除区块链部署选择
                 }
-                .padding(24)
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .glassBorder()
+                .glassCard()
 
                 Button {
                     viewModel.goToReview()
@@ -340,9 +334,9 @@ private struct DreamStylingStep: View {
                 }
                 .buttonStyle(PrimaryButtonStyle())
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, Layout.horizontalPadding)
             .padding(.bottom, 40)
-            .frame(maxWidth: 820)
+            .frame(maxWidth: Layout.containerMaxWidth)
         }
         .background(Color.clear)
     }
@@ -353,7 +347,7 @@ private struct DreamReviewStep: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: Layout.verticalSectionSpacing) {
                 StepHeader(step: .review, active: viewModel.currentStep)
                 ReviewCard(viewModel: viewModel)
                 Button {
@@ -367,9 +361,9 @@ private struct DreamReviewStep: View {
                 .buttonStyle(PrimaryButtonStyle())
                 .disabled(viewModel.isSubmitting)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, Layout.horizontalPadding)
             .padding(.bottom, 40)
-            .frame(maxWidth: 820)
+            .frame(maxWidth: Layout.containerMaxWidth)
         }
         .background(Color.clear)
     }
@@ -381,7 +375,7 @@ private struct DreamProgressStep: View {
     var body: some View {
         VStack(spacing: 28) {
             StepHeader(step: .progress, active: viewModel.currentStep)
-            VStack(spacing: 24) {
+            VStack(spacing: Layout.verticalSectionSpacing) {
                 ProgressView(value: viewModel.progress)
                     .progressViewStyle(.linear)
                     .tint(.dreamechoSecondary)
@@ -393,10 +387,7 @@ private struct DreamProgressStep: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
-            .padding(24)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-            .glassBorder()
+            .glassCard()
 
             if !viewModel.isSubmitting {
                 Button {
@@ -410,9 +401,9 @@ private struct DreamProgressStep: View {
                 .buttonStyle(PrimaryButtonStyle())
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, Layout.horizontalPadding)
         .padding(.bottom, 40)
-        .frame(maxWidth: 820)
+        .frame(maxWidth: Layout.containerMaxWidth)
         .background(Color.clear)
     }
 }
@@ -460,7 +451,8 @@ private struct TagInputField: View {
                     .textFieldStyle(.roundedBorder)
                 if !draft.isEmpty {
                     Button("添加") { addTag() }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(GlassButtonStyle())
+                        .controlSize(.small)
                 }
             }
             if !tags.isEmpty {
@@ -518,7 +510,7 @@ private struct ReviewCard: View {
             Grid(horizontalSpacing: 18, verticalSpacing: 12) {
                 GridRow { Label("情绪", systemImage: "face.smiling") ; Text(viewModel.selectedMood.rawValue) }
                 GridRow { Label("风格", systemImage: "paintbrush") ; Text(viewModel.selectedStyle.rawValue) }
-                GridRow { Label("区块链", systemImage: "link") ; Text(viewModel.selectedBlockchain.displayName) }
+                // 去币化：移除区块链信息
                 if !viewModel.tags.isEmpty {
                     GridRow { Label("标签", systemImage: "tag") ; Text(viewModel.tags.joined(separator: "、")) }
                 }

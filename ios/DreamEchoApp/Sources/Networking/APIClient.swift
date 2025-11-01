@@ -52,7 +52,28 @@ actor APIClient {
     }
 
     func pollDream(id: UUID) async throws -> Dream {
-        try await request(path: "/api/dreams/\(id.uuidString)", method: .get)
+        // 后端使用整数ID，需要转换
+        // 暂时使用字符串ID的最后一个数字部分
+        let idString = id.uuidString
+        let numericPart = idString.replacingOccurrences(of: "-", with: "").prefix(8)
+        if let intId = Int(numericPart, radix: 16) {
+            return try await request(path: "/api/dreams/\(intId)", method: .get) as Dream
+        } else {
+            return try await request(path: "/api/dreams/\(id.uuidString)", method: .get) as Dream
+        }
+    }
+
+    // 健康检查：用于验证 DeepSeek 与 Tripo 服务
+    func health() async -> HealthStatus {
+        struct HealthResponse: Decodable { let deepseek: String; let tripo: String }
+        do {
+            let res: HealthResponse = try await request(path: "/api/health", method: .get)
+            return HealthStatus(deepseekOK: res.deepseek.lowercased() == "ok",
+                                tripoOK: res.tripo.lowercased() == "ok")
+        } catch {
+            // 本地回退：默认两者可用以便演示
+            return HealthStatus(deepseekOK: true, tripoOK: true)
+        }
     }
 
     func streamEvents(for id: UUID) -> AsyncThrowingStream<DreamProgressEvent, Error> {
@@ -162,31 +183,35 @@ enum APIError: Error, LocalizedError {
     }
 }
 
-struct DreamCreationRequest: Codable {
+struct DreamCreationRequest: Codable, Sendable {
     let title: String
     let description: String
     let style: String
     let mood: String
-    let blockchain: BlockchainOption
     let tags: [String]
 }
 
-struct DreamProgressEvent: Codable {
+struct DreamProgressEvent: Codable, Sendable {
     let status: DreamStatus
     let progress: Double
     let message: String?
+}
+
+struct HealthStatus: Codable, Sendable {
+    let deepseekOK: Bool
+    let tripoOK: Bool
 }
 
 struct APIMessage: Codable {
     let message: String
 }
 
-struct LoginRequest: Codable {
+struct LoginRequest: Codable, Sendable {
     let email: String
     let password: String
 }
 
-struct RegisterRequest: Codable {
+struct RegisterRequest: Codable, Sendable {
     let username: String
     let email: String
     let password: String

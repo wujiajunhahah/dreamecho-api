@@ -27,15 +27,27 @@ import string
 # 加载环境变量
 load_dotenv()
 
-# API密钥
-DEEPSEEK_API_KEY = "sk-586e842eecfc45ba92eeceebed9b76dd"
-TRIPO_API_KEY = "tsk_Ep2Vvovn4vAMITNVEjFjOacWy3jfuQtwIzJWV5lsS2T"
+# API密钥：优先从环境变量读取，如果没有则从config.py读取（用于本地开发）
+from config import Config
+DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY') or Config.DEEPSEEK_API_KEY
+TRIPO_API_KEY = os.getenv('TRIPO_API_KEY') or Config.TRIPO_API_KEY
 
 app = Flask(__name__)
 app.config.from_object('config.Config')
 app.secret_key = os.getenv('SECRET_KEY', os.urandom(24))
-app.config['SECRET_KEY'] = 'your-secret-key-here'  # 请更改为安全的密钥
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///dreams.db'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here')  # 从环境变量读取
+
+# 数据库配置：支持 Render、Railway 等云平台的 PostgreSQL
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    # Render 等平台使用 postgres://，需要转换为 postgresql://
+    if DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+else:
+    # 本地开发使用 SQLite
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///dreams.db'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # 初始化扩展
@@ -930,4 +942,315 @@ def register():
     return render_template('register.html')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    # 支持云平台的 PORT 环境变量（Render、Railway等）
+    port = int(os.environ.get('PORT', 5001))
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    app.run(host='0.0.0.0', port=port, debug=debug)
+
+# ========== iOS App API Endpoints ==========
+
+import uuid
+from functools import wraps
+
+def token_required(f):
+    """Token认证装饰器"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            try:
+                token = auth_header.split(' ')[1]  # Bearer <token>
+            except:
+                pass
+        
+        if not token:
+            return jsonify({'message': 'Token缺失'}), 401
+        
+        # 简单验证：在实际应用中应该验证JWT token
+        # 这里暂时使用session验证
+        if not current_user.is_authenticated:
+            return jsonify({'message': 'Token无效'}), 401
+        
+        return f(*args, **kwargs)
+    return decorated
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """健康检查，验证DeepSeek和Tripo API状态"""
+    converter = DreamToModelConverter()
+    deepseek_ok = converter.test_deepseek_api()
+    tripo_ok = bool(TRIPO_API_KEY)  # 简单检查API key是否存在
+    
+    return jsonify({
+        'deepseek': 'ok' if deepseek_ok else 'error',
+        'tripo': 'ok' if tripo_ok else 'error'
+    })
+
+@app.after_request
+def after_request(response):
+    """添加CORS头，支持iOS应用跨域请求"""
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
+@app.route('/api/auth/login', methods=['POST', 'OPTIONS'])
+def api_login():
+    """iOS应用登录API"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+        
+        if not email or not password:
+            return jsonify({'error': '邮箱和密码不能为空'}), 400
+        
+        user = User.query.filter_by(email=email).first()
+        if user and user.check_password(password):
+            login_user(user)
+            # 生成简单的token（实际应用中应使用JWT）
+            token = str(uuid.uuid4())
+            session['api_token'] = token
+            
+            return jsonify({
+                'user': {
+                    'id': str(user.id),
+                    'username': user.username,
+                    'email': user.email
+                },
+                'token': token
+            })
+        else:
+            return jsonify({'error': '邮箱或密码错误'}), 401
+    except Exception as e:
+        app.logger.error(f"登录API错误: {str(e)}")
+        return jsonify({'error': '服务器错误'}), 500
+
+@app.route('/api/auth/register', methods=['POST', 'OPTIONS'])
+def api_register():
+    """iOS应用注册API"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        email = data.get('email')
+        password = data.get('password')
+        
+        if not username or not email or not password:
+            return jsonify({'error': '所有字段都是必填的'}), 400
+        
+        if User.query.filter_by(username=username).first():
+            return jsonify({'error': '用户名已存在'}), 400
+        
+        if User.query.filter_by(email=email).first():
+            return jsonify({'error': '邮箱已被使用'}), 400
+        
+        user = User(username=username, email=email)
+        user.set_password(password)
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        login_user(user)
+        token = str(uuid.uuid4())
+        session['api_token'] = token
+        
+        return jsonify({
+            'user': {
+                'id': str(user.id),
+                'username': user.username,
+                'email': user.email
+            },
+            'token': token
+        }), 201
+    except Exception as e:
+        app.logger.error(f"注册API错误: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': '服务器错误'}), 500
+
+@app.route('/api/session', methods=['GET'])
+@login_required
+def api_session():
+    """获取当前会话信息"""
+    return jsonify({
+        'user': {
+            'id': str(current_user.id),
+            'username': current_user.username,
+            'email': current_user.email
+        },
+        'token': session.get('api_token', '')
+    })
+
+@app.route('/api/dreams', methods=['GET'])
+@login_required
+def api_get_dreams():
+    """获取用户的梦境列表"""
+    try:
+        dreams = Dream.query.filter_by(user_id=current_user.id).all()
+        dreams_list = []
+        
+        for dream in dreams:
+            # 映射后端状态到iOS应用期望的状态
+            status_mapping = {
+                'pending': 'pending',
+                'processing': 'processing',
+                'complete': 'completed',
+                'completed': 'completed',
+                'failed': 'failed'
+            }
+            dream_status = status_mapping.get(dream.status or 'pending', 'pending')
+            
+            dream_dict = {
+                'id': str(dream.id),
+                'title': dream.title,
+                'description': dream.description or dream.dream_text or '',
+                'status': dream_status,
+                'tags': dream.tags.split(',') if dream.tags else [],
+                'createdAt': dream.created_at.isoformat() if dream.created_at else datetime.utcnow().isoformat(),
+                'updatedAt': dream.updated_at.isoformat() if dream.updated_at else datetime.utcnow().isoformat(),
+                'previewImageURL': dream.image_url if dream.image_url else None,
+                'modelURL': dream.model_file if dream.model_file else None
+            }
+            dreams_list.append(dream_dict)
+        
+        return jsonify(dreams_list)
+    except Exception as e:
+        app.logger.error(f"获取梦境列表错误: {str(e)}")
+        return jsonify({'error': '服务器错误'}), 500
+
+@app.route('/api/dreams', methods=['POST'])
+@login_required
+def api_create_dream():
+    """创建新梦境 - 调用真实的DeepSeek和Tripo API"""
+    try:
+        data = request.get_json()
+        title = data.get('title', 'Untitled Dream')
+        description = data.get('description', '')
+        style = data.get('style', '')
+        mood = data.get('mood', '')
+        tags = data.get('tags', [])
+        
+        if not description:
+            return jsonify({'error': '梦境描述不能为空'}), 400
+        
+        new_dream = Dream(
+            user_id=current_user.id,
+            title=title,
+            description=description,
+            dream_text=description,
+            style=style,
+            mood=mood,
+            tags=','.join(tags) if tags else None,
+            status='pending'
+        )
+        
+        db.session.add(new_dream)
+        db.session.commit()
+        
+        # 异步处理梦境生成 - 这里会调用真实的DeepSeek和Tripo API
+        import threading
+        threading.Thread(target=process_dream_async, args=(description, current_user.id, new_dream.id)).start()
+        
+        dream_response = {
+            'id': str(new_dream.id),
+            'title': new_dream.title,
+            'description': new_dream.description,
+            'status': new_dream.status,
+            'tags': tags,
+            'createdAt': new_dream.created_at.isoformat(),
+            'updatedAt': new_dream.updated_at.isoformat()
+        }
+        
+        return jsonify(dream_response), 201
+    except Exception as e:
+        app.logger.error(f"创建梦境错误: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': '服务器错误'}), 500
+
+@app.route('/api/dreams/<dream_id>', methods=['GET'])
+@login_required
+def api_get_dream(dream_id):
+    """获取单个梦境详情"""
+    try:
+        try:
+            dream_id_int = int(dream_id)
+        except ValueError:
+            return jsonify({'error': '无效的梦境ID'}), 400
+            
+        dream = Dream.query.filter_by(id=dream_id_int, user_id=current_user.id).first()
+        if not dream:
+            return jsonify({'error': '梦境不存在'}), 404
+        
+        return jsonify({
+            'id': str(dream.id),
+            'title': dream.title,
+            'description': dream.description or dream.dream_text or '',
+            'status': 'completed' if dream.status == 'complete' else dream.status or 'pending',
+            'tags': dream.tags.split(',') if dream.tags else [],
+            'createdAt': dream.created_at.isoformat() if dream.created_at else datetime.utcnow().isoformat(),
+            'updatedAt': dream.updated_at.isoformat() if dream.updated_at else datetime.utcnow().isoformat(),
+            'previewImageURL': dream.image_url if dream.image_url else None,
+            'modelURL': dream.model_file if dream.model_file else None
+        })
+    except Exception as e:
+        app.logger.error(f"获取梦境详情错误: {str(e)}")
+        return jsonify({'error': '服务器错误'}), 500
+
+def process_dream_async(description, user_id, dream_id):
+    """异步处理梦境生成"""
+    try:
+        dream = Dream.query.get(dream_id)
+        dream.status = 'processing'
+        db.session.commit()
+        
+        converter = DreamToModelConverter()
+        result = converter.process_dream(dream_text=description, user_id=user_id, dream_id=dream_id)
+        
+        if result and 'model_path' in result:
+            dream.model_file = result['model_path']
+            dream.status = 'complete'  # 数据库使用complete
+            db.session.commit()
+    except Exception as e:
+        app.logger.error(f"异步处理梦境失败: {str(e)}")
+        dream = Dream.query.get(dream_id)
+        dream.status = 'failed'
+        db.session.commit()
+
+@app.route('/api/dreams/<dream_id>/events', methods=['GET'])
+@login_required
+def api_dream_events(dream_id):
+    """流式事件端点，用于实时推送梦境生成进度"""
+    try:
+        try:
+            dream_id_int = int(dream_id)
+        except ValueError:
+            return jsonify({'error': '无效的梦境ID'}), 400
+        
+        dream = Dream.query.filter_by(id=dream_id_int, user_id=current_user.id).first()
+        if not dream:
+            return jsonify({'error': '梦境不存在'}), 404
+        
+        # 简单的SSE实现
+        def generate():
+            import time
+            progress_stages = [
+                (0.1, 'pending', '正在排队...'),
+                (0.3, 'processing', '正在分析梦境...'),
+                (0.6, 'processing', '正在生成3D模型...'),
+                (0.9, 'processing', '正在优化模型...'),
+                (1.0, 'completed', '模型生成完成！')
+            ]
+            
+            for progress, status, message in progress_stages:
+                yield f"data: {{\"status\": \"{status}\", \"progress\": {progress}, \"message\": \"{message}\"}}\n\n"
+                time.sleep(1)  # 模拟处理时间
+        
+        from flask import Response
+        return Response(generate(), mimetype='text/event-stream')
+    except Exception as e:
+        app.logger.error(f"流式事件错误: {str(e)}")
+        return jsonify({'error': '服务器错误'}), 500

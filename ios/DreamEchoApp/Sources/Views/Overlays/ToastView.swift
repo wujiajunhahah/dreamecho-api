@@ -36,11 +36,12 @@ private struct ToastModifier: ViewModifier {
                 }
             }
         }
-        .onChange(of: message) { newValue in
+        .onChange(of: message) { oldValue, newValue in
             guard newValue != nil else { return }
-            withAnimation(.spring()) { isPresented = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                withAnimation(.spring()) { isPresented = false }
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { isPresented = true }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { isPresented = false }
                 self.message = nil
             }
         }

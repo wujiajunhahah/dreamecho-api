@@ -9,8 +9,12 @@ struct DreamLibraryView: View {
 
     private var source: [Dream] {
         switch segment {
-        case .mine: return appState.completedDreams
-        case .inspiration: return Dream.showcase
+        case .mine: 
+            // 只显示用户自己的真实梦境
+            return appState.completedDreams
+        case .inspiration:
+            // 可以从后端获取公开的精选梦境
+            return appState.completedDreams.filter { $0.status == .completed }
         }
     }
 
@@ -24,7 +28,7 @@ struct DreamLibraryView: View {
     }
 
     var body: some View {
-        if #available(iOS 17.0, *) {
+        if #available(iOS 26.0, *) {
             NavigationStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 28) {
@@ -59,7 +63,22 @@ struct DreamLibraryView: View {
                     .padding(.bottom, 60)
                     .padding(.top, 16)
                 }
-                .background(LinearGradient(colors: [.dreamechoBackground, Color.black], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea())
+                .background(
+                    ZStack {
+                        Color.dreamechoBackground.ignoresSafeArea()
+                        // 添加渐变背景而不是黑色
+                        LinearGradient(
+                            colors: [
+                                Color.dreamechoBackground.opacity(0.8),
+                                Color.dreamechoPrimary.opacity(0.05),
+                                Color.dreamechoBackground
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        .ignoresSafeArea()
+                    }
+                )
                 .navigationTitle("梦境档案")
                 .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索标题或标签")
                 .toolbar {
@@ -85,7 +104,7 @@ struct DreamLibraryView: View {
             }
             .toast(message: $toastMessage)
             .task { await refresh() }
-            .onChange(of: appState.lastError) { _, newValue in
+            .onChange(of: appState.lastError) { oldValue, newValue in
                 toastMessage = newValue
             }
         } else {
@@ -208,9 +227,9 @@ private struct DreamCard: View {
             }
 
             HStack {
-                Label(dream.blockchain.displayName, systemImage: "link")
-                Spacer()
                 Label(dream.status.localizedDescription, systemImage: dream.status.iconName)
+                Spacer()
+                Label("查看", systemImage: "eye")
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -236,11 +255,27 @@ private struct DreamDetailView: View {
                 }
                 .padding()
             }
-            .background(LinearGradient(colors: [.dreamechoBackground, Color.black], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea())
+            .background(
+                ZStack {
+                    Color.dreamechoBackground.ignoresSafeArea()
+                    LinearGradient(
+                        colors: [
+                            Color.dreamechoBackground.opacity(0.8),
+                            Color.dreamechoPrimary.opacity(0.05),
+                            Color.dreamechoBackground
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .ignoresSafeArea()
+                }
+            )
             .navigationTitle("梦境详情")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("关闭") { isPresented = false }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.dreamechoPrimary)
                 }
                 ToolbarItem(placement: .primaryAction) {
                     ShareLink(item: dream.modelURL ?? URL(string: "https://dreamecho.ai")!) {
@@ -260,9 +295,6 @@ private struct DetailCard: View {
             Text(dream.title).font(AppFont.heading(28))
             Text(dream.description).font(.body).foregroundStyle(.secondary)
             Divider().background(.white.opacity(0.2))
-            InfoRow(label: "区块链", value: dream.blockchain.displayName, icon: "link")
-            if let price = dream.price { InfoRow(label: "价格", value: "\(price)", icon: "creditcard") }
-            if let royalty = dream.royalty { InfoRow(label: "版税", value: "\(royalty)%", icon: "percent") }
             if !dream.tags.isEmpty { InfoRow(label: "标签", value: dream.tags.joined(separator: "、"), icon: "tag") }
         }
         .padding(24)

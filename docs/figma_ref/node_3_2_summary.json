@@ -1,0 +1,24 @@
+{
+  "name": "MacBook Pro 16\" - 1",
+  "type": "FRAME",
+  "size": {
+    "x": -3065.0,
+    "y": -294.0,
+    "width": 1728.0,
+    "height": 7673.0
+  },
+  "children": 68,
+  "counts": {
+    "FRAME": 7,
+    "GROUP": 51,
+    "RECTANGLE": 52,
+    "TEXT": 69,
+    "COMPONENT": 0,
+    "INSTANCE": 0,
+    "COMPONENT_SET": 0,
+    "ELLIPSE": 5,
+    "VECTOR": 23,
+    "LINE": 2,
+    "IMAGE": 0
+  }
+}

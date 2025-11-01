@@ -19,9 +19,13 @@ final class AppState: ObservableObject {
     }
 
     func bootstrap() async {
+        // 若已在登录流程（如访客/Apple），避免被启动流程覆盖为未登录
+        let alreadyAuthed = isAuthenticated
         await authService.bootstrap()
+        if !alreadyAuthed {
         session = authService.session
         isAuthenticated = session != nil
+        }
         await refreshDreams()
     }
 
@@ -45,6 +49,24 @@ final class AppState: ObservableObject {
         } catch {
             lastError = error.localizedDescription
         }
+    }
+
+    func loginAsGuest() async {
+        do {
+            try await authService.loginAsGuest()
+            session = authService.session
+            isAuthenticated = true
+            await refreshDreams()
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func authApple(id: String, email: String?) async {
+        await authService.loginWithApple(userIdentifier: id, email: email)
+        session = authService.session
+        isAuthenticated = session != nil
+        await refreshDreams()
     }
 
     func logout() async {

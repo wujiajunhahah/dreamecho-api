@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-protocol TokenStore {
+protocol TokenStore: Sendable {
     func save(token: String) throws
     func loadToken() throws -> String?
     func clear() throws
@@ -11,7 +11,7 @@ enum KeychainError: Error {
     case unexpectedStatus(OSStatus)
 }
 
-final class KeychainStore: TokenStore {
+final class KeychainStore: TokenStore, @unchecked Sendable {
     private let service = Bundle.main.bundleIdentifier ?? "DreamEcho"
     private let account = "DreamEchoAuthToken"
 
