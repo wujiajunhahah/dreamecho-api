@@ -3,7 +3,7 @@ services:
     name: dreamecho-api
     env: python
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt && flask db upgrade
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300 --worker-class gevent --workers 1 --log-level info --worker-tmp-dir=/dev/shm
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300 --workers 1 --log-level info --worker-tmp-dir=/dev/shm
     envSpecific:
       pythonVersion: 3.11.9
     healthCheckPath: /api/health
