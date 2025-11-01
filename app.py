@@ -73,6 +73,15 @@ file_handler.setFormatter(logging.Formatter(
 file_handler.setLevel(logging.INFO)
 app.logger.addHandler(file_handler)
 app.logger.setLevel(logging.INFO)
+
+# 初始化数据库表（如果不存在）
+with app.app_context():
+    try:
+        db.create_all()
+        app.logger.info('数据库表初始化完成')
+    except Exception as e:
+        app.logger.warning(f'数据库表初始化警告: {str(e)}')
+
 app.logger.info('梦境转3D模型应用启动')
 
 # 用户模型
