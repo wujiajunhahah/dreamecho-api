@@ -3,9 +3,10 @@ services:
     name: dreamecho-api
     env: python
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300 --workers 2
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 80 --workers 1 --log-level info --worker-tmp-dir=/dev/shm
     envSpecific:
       pythonVersion: 3.11.9
+    healthCheckPath: /api/health
     envVars:
       - key: DEEPSEEK_API_KEY
         sync: false
@@ -23,4 +24,6 @@ services:
         value: "1"
       - key: PYTHONUNBUFFERED
         value: "1"
+      - key: GUNICORN_CMD_ARGS
+        value: "--worker-tmp-dir=/dev/shm"
 
