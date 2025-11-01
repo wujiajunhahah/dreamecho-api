@@ -118,6 +118,7 @@ class Dream(db.Model):
     interpretation = db.Column(db.Text) # From DeepSeek
     nft_tx_hash = db.Column(db.String(128), nullable=True) # Store minting transaction hash
     status = db.Column(db.String(50), default='pending') # e.g., pending, processing, complete, minted, failed
+    is_public = db.Column(db.Boolean, default=True) # Whether the dream is public
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
