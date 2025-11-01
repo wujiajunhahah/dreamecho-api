@@ -32,7 +32,7 @@ struct DreamLibraryView: View {
             NavigationStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 28) {
-                        LibraryHeader(completed: appState.completedDreams.count, pending: appState.pendingDreams.count, showcase: Dream.showcase.count)
+                        LibraryHeader(completed: appState.completedDreams.count, pending: appState.pendingDreams.count, showcase: 0) // 不再显示假数据统计
                         
                         Picker("梦境视图", selection: $segment) {
                             ForEach(LibrarySegment.allCases, id: \.self) { segment in

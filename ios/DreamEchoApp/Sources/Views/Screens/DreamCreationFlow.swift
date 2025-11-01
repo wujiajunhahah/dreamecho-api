@@ -70,7 +70,6 @@ struct DreamCreationFlow: View {
     private func stepView(for step: DreamCreationStep) -> some View {
         switch step {
         case .description: DreamDescriptionStep(viewModel: viewModel)
-        case .styling: DreamStylingStep(viewModel: viewModel)
         case .review: DreamReviewStep(viewModel: viewModel)
         case .progress: DreamProgressStep(viewModel: viewModel)
         }
@@ -79,14 +78,12 @@ struct DreamCreationFlow: View {
 
 enum DreamCreationStep: Int, CaseIterable, Hashable {
     case description
-    case styling
     case review
     case progress
 
     var navigationTitle: String {
         switch self {
         case .description: return "梦境工坊"
-        case .styling: return "情绪与风格"
         case .review: return "确认生成"
         case .progress: return "DreamSync"
         }
@@ -95,7 +92,6 @@ enum DreamCreationStep: Int, CaseIterable, Hashable {
     var displayTitle: String {
         switch self {
         case .description: return "描述梦境"
-        case .styling: return "设定风格"
         case .review: return "生成确认"
         case .progress: return "生成进度"
         }
@@ -103,8 +99,7 @@ enum DreamCreationStep: Int, CaseIterable, Hashable {
 
     var subtitle: String {
         switch self {
-        case .description: return "越具体的描述，AI 越能理解你的梦境语气。"
-        case .styling: return "选择梦境的情绪、艺术风格以及链上配置。"
+        case .description: return "越具体的描述，AI 越能理解你的梦境并自动提取关键词。"
         case .review: return "确认细节并提交 DreamSync 生成功能。"
         case .progress: return "DreamSync 正在生成 3D 模型，可随时返回梦境库查看。"
         }
@@ -118,10 +113,7 @@ final class DreamCreationViewModel: ObservableObject {
 
     @Published var title = ""
     @Published var description = ""
-    @Published var selectedMood: Mood = .serene
-    @Published var selectedStyle: Style = .ethereal
-    // 去币化：移除区块链选择
-    @Published var tags: [String] = []
+    @Published var extractedTags: [String] = [] // 从后端提取的标签
 
     @Published var isSubmitting = false
     @Published var progress: Double = 0
@@ -143,16 +135,11 @@ final class DreamCreationViewModel: ObservableObject {
     }
 
     var canReset: Bool {
-        !title.isEmpty || !description.isEmpty || !tags.isEmpty || selectedMood != .serene || selectedStyle != .ethereal
-    }
-
-    func goToStyling() {
-        path = [.styling]
-        syncStep()
+        !title.isEmpty || !description.isEmpty
     }
 
     func goToReview() {
-        path = [.styling, .review]
+        path = [.review]
         syncStep()
     }
 
@@ -164,7 +151,7 @@ final class DreamCreationViewModel: ObservableObject {
 
     func submit() {
         guard !title.isEmpty, !description.isEmpty, !isSubmitting else { return }
-        path = [.styling, .review, .progress]
+        path = [.review, .progress]
         syncStep()
 
         isSubmitting = true
@@ -176,8 +163,15 @@ final class DreamCreationViewModel: ObservableObject {
         progressTask?.cancel()
         progressTask = Task {
             do {
-                let request = DreamCreationRequest(title: title, description: description, style: selectedStyle.rawValue, mood: selectedMood.rawValue, tags: tags)
+                // 标签由后端自动提取，不需要传入
+                let request = DreamCreationRequest(title: title, description: description, style: "", mood: "", tags: [])
                 let dream = try await dreamService.submit(request: request)
+                
+                // 如果后端返回了标签，更新extractedTags
+                if !dream.tags.isEmpty {
+                    extractedTags = dream.tags
+                }
+                
                 statusMessage = "模型生成中"
                 await appState?.refreshDreams()
                 try await listen(for: dream)
@@ -195,9 +189,7 @@ final class DreamCreationViewModel: ObservableObject {
     func reset() {
         title = ""
         description = ""
-        selectedMood = .serene
-        selectedStyle = .ethereal
-        tags = []
+        extractedTags = []
         statusMessage = "准备就绪"
         progress = 0
         isSubmitting = false
@@ -220,6 +212,12 @@ final class DreamCreationViewModel: ObservableObject {
             progress = updated.status == .completed ? 1 : progress
             statusMessage = updated.status.progressMessage
             isSubmitting = false
+            
+            // 更新标签
+            if !updated.tags.isEmpty {
+                extractedTags = updated.tags
+            }
+            
 #if canImport(UIKit)
             if updated.status == .completed {
                 HapticsManager.shared.notify(.success)
@@ -245,45 +243,49 @@ final class DreamCreationViewModel: ObservableObject {
     }
 }
 
-enum Mood: String, CaseIterable, Identifiable {
-    case serene = "宁静"
-    case adventurous = "冒险"
-    case mysterious = "神秘"
-    case vibrant = "绚烂"
-
-    var id: String { rawValue }
-}
-
-enum Style: String, CaseIterable, Identifiable {
-    case ethereal = "空灵"
-    case cyberpunk = "赛博朋克"
-    case biomorphic = "仿生"
-    case minimal = "极简"
-
-    var id: String { rawValue }
-}
-
 private struct DreamDescriptionStep: View {
     @ObservedObject var viewModel: DreamCreationViewModel
-    @State private var tagDraft = ""
 
     var body: some View {
         ScrollView {
-            VStack(spacing: Layout.verticalSectionSpacing) {
-                StepHeader(step: .description, active: viewModel.currentStep)
-                VStack(spacing: 18) {
-                    TextField("梦境标题", text: $viewModel.title)
-                        .textFieldStyle(.roundedBorder)
-                    DreamEditor(text: $viewModel.description)
-                    TagInputField(tags: $viewModel.tags, draft: $tagDraft)
+            VStack(spacing: 28) {
+                // 简化的标题区域，移除步骤指示器
+                VStack(spacing: 12) {
+                    Text(viewModel.currentStep.displayTitle)
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.textPrimary)
+                    Text(viewModel.currentStep.subtitle)
+                        .font(.system(size: 16, weight: .regular, design: .rounded))
+                        .foregroundStyle(Color.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+                .padding(.top, 8)
+                
+                VStack(spacing: 20) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("标题")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color.textPrimary)
+                        TextField("给梦境起个名字", text: $viewModel.title)
+                            .font(.system(size: 17, weight: .regular, design: .rounded))
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("描述")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color.textPrimary)
+                        DreamEditor(text: $viewModel.description)
+                    }
                 }
                 .glassCard()
 
                 Button {
-                    viewModel.goToStyling()
+                    viewModel.goToReview()
                 } label: {
                     Label("下一步", systemImage: "arrow.right")
-                        .font(.headline)
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                 }
@@ -300,61 +302,32 @@ private struct DreamDescriptionStep: View {
     }
 }
 
-private struct DreamStylingStep: View {
-    @ObservedObject var viewModel: DreamCreationViewModel
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: Layout.verticalSectionSpacing) {
-                StepHeader(step: .styling, active: viewModel.currentStep)
-                VStack(spacing: 16) {
-                    PickerSection(title: "梦境情绪") {
-                        Picker("情绪", selection: $viewModel.selectedMood) {
-                            ForEach(Mood.allCases) { mood in Text(mood.rawValue).tag(mood) }
-                        }
-                        .pickerStyle(.segmented)
-                    }
-                    PickerSection(title: "艺术风格") {
-                        Picker("风格", selection: $viewModel.selectedStyle) {
-                            ForEach(Style.allCases) { style in Text(style.rawValue).tag(style) }
-                        }
-                        .pickerStyle(.segmented)
-                    }
-                    // 去币化：移除区块链部署选择
-                }
-                .glassCard()
-
-                Button {
-                    viewModel.goToReview()
-                } label: {
-                    Label("确认设定", systemImage: "checkmark")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                }
-                .buttonStyle(PrimaryButtonStyle())
-            }
-            .padding(.horizontal, Layout.horizontalPadding)
-            .padding(.bottom, 40)
-            .frame(maxWidth: Layout.containerMaxWidth)
-        }
-        .background(Color.clear)
-    }
-}
-
 private struct DreamReviewStep: View {
     @ObservedObject var viewModel: DreamCreationViewModel
 
     var body: some View {
         ScrollView {
-            VStack(spacing: Layout.verticalSectionSpacing) {
-                StepHeader(step: .review, active: viewModel.currentStep)
+            VStack(spacing: 28) {
+                // 简化的标题区域
+                VStack(spacing: 12) {
+                    Text(viewModel.currentStep.displayTitle)
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.textPrimary)
+                    Text(viewModel.currentStep.subtitle)
+                        .font(.system(size: 16, weight: .regular, design: .rounded))
+                        .foregroundStyle(Color.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+                .padding(.top, 8)
+                
                 ReviewCard(viewModel: viewModel)
+                
                 Button {
                     viewModel.submit()
                 } label: {
                     Label("提交 DreamSync", systemImage: "sparkles")
-                        .font(.headline)
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                 }
@@ -374,8 +347,20 @@ private struct DreamProgressStep: View {
 
     var body: some View {
         VStack(spacing: 28) {
-            StepHeader(step: .progress, active: viewModel.currentStep)
-            VStack(spacing: Layout.verticalSectionSpacing) {
+            // 简化的标题区域
+            VStack(spacing: 12) {
+                Text(viewModel.currentStep.displayTitle)
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.textPrimary)
+                Text(viewModel.currentStep.subtitle)
+                    .font(.system(size: 16, weight: .regular, design: .rounded))
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+            .padding(.top, 8)
+            
+            VStack(spacing: 24) {
                 ProgressView(value: viewModel.progress)
                     .progressViewStyle(.linear)
                     .tint(.dreamechoSecondary)
@@ -383,8 +368,8 @@ private struct DreamProgressStep: View {
                     .frame(height: 160)
                     .mask(RoundedRectangle(cornerRadius: 24, style: .continuous))
                 Text(viewModel.statusMessage)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 16, weight: .regular, design: .rounded))
+                    .foregroundStyle(Color.textSecondary)
                     .multilineTextAlignment(.center)
             }
             .glassCard()
@@ -394,7 +379,7 @@ private struct DreamProgressStep: View {
                     viewModel.finish()
                 } label: {
                     Label("查看梦境库", systemImage: "square.grid.2x2")
-                        .font(.headline)
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                 }
@@ -408,91 +393,19 @@ private struct DreamProgressStep: View {
     }
 }
 
-private struct StepHeader: View {
-    let step: DreamCreationStep
-    let active: DreamCreationStep
-
-    var body: some View {
-        VStack(spacing: 18) {
-            DreamStepIndicator(activeStep: active)
-            VStack(spacing: 6) {
-                Text(step.displayTitle).font(AppFont.heading(26))
-                Text(step.subtitle).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity)
-        }
-    }
-}
-
 private struct DreamEditor: View {
     @Binding var text: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             TextEditor(text: $text)
+                .font(.system(size: 17, weight: .regular, design: .rounded))
                 .frame(minHeight: 180)
                 .background(Color.clear)
             Divider().background(Color.white.opacity(0.12))
-            Text("提示：描述场景、情绪、光线、材质等细节，AI 会提取关键词用于建模。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-}
-
-private struct TagInputField: View {
-    @Binding var tags: [String]
-    @Binding var draft: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                TextField("添加标签（例如 星尘 / 森林 / AR）", text: $draft, onCommit: addTag)
-                    .textFieldStyle(.roundedBorder)
-                if !draft.isEmpty {
-                    Button("添加") { addTag() }
-                        .buttonStyle(GlassButtonStyle())
-                        .controlSize(.small)
-                }
-            }
-            if !tags.isEmpty {
-                FlowLayout(alignment: .leading, spacing: 8, minWidth: 80) {
-                    ForEach(tags, id: \.self) { tag in
-                        HStack(spacing: 6) {
-                            Text(tag).font(.caption)
-                            Image(systemName: "xmark").font(.system(size: 10, weight: .bold))
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.white.opacity(0.08))
-                        .clipShape(Capsule())
-                        .onTapGesture { remove(tag) }
-                    }
-                }
-            }
-        }
-    }
-
-    private func addTag() {
-        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !tags.contains(trimmed) else { return }
-        tags.append(trimmed)
-        draft = ""
-    }
-
-    private func remove(_ tag: String) {
-        tags.removeAll { $0 == tag }
-    }
-}
-
-private struct PickerSection<Content: View>: View {
-    let title: String
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title).font(.callout.weight(.medium))
-            content
+            Text("提示：描述场景、情绪、光线、材质等细节，AI 会自动提取关键词用于建模。")
+                .font(.system(size: 13, weight: .regular, design: .rounded))
+                .foregroundStyle(Color.textSecondary)
         }
     }
 }
@@ -501,22 +414,44 @@ private struct ReviewCard: View {
     @ObservedObject var viewModel: DreamCreationViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(viewModel.title).font(AppFont.heading(24))
-                Text(viewModel.description).font(.callout).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(viewModel.title)
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.textPrimary)
+                Text(viewModel.description)
+                    .font(.system(size: 16, weight: .regular, design: .rounded))
+                    .foregroundStyle(Color.textSecondary)
             }
             Divider().background(.white.opacity(0.12))
-            Grid(horizontalSpacing: 18, verticalSpacing: 12) {
-                GridRow { Label("情绪", systemImage: "face.smiling") ; Text(viewModel.selectedMood.rawValue) }
-                GridRow { Label("风格", systemImage: "paintbrush") ; Text(viewModel.selectedStyle.rawValue) }
-                // 去币化：移除区块链信息
-                if !viewModel.tags.isEmpty {
-                    GridRow { Label("标签", systemImage: "tag") ; Text(viewModel.tags.joined(separator: "、")) }
+            
+            if !viewModel.extractedTags.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    Label("AI提取的标签", systemImage: "tag.fill")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.textPrimary)
+                    FlowLayout(alignment: .leading, spacing: 8) {
+                        ForEach(viewModel.extractedTags, id: \.self) { tag in
+                            Text(tag)
+                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.dreamechoPrimary.opacity(0.15))
+                                .foregroundStyle(Color.dreamechoPrimary)
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("标签", systemImage: "tag")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.textPrimary)
+                    Text("提交后AI会自动提取关键词作为标签")
+                        .font(.system(size: 14, weight: .regular, design: .rounded))
+                        .foregroundStyle(Color.textSecondary)
                 }
             }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
         }
         .padding(24)
         .background(.ultraThinMaterial)

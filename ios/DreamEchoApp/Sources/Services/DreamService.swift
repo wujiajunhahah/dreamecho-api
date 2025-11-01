@@ -26,16 +26,10 @@ final class DreamService: ObservableObject {
     }
 
     func submit(request: DreamCreationRequest) async throws -> Dream {
-        do {
+        // 只调用真实API，失败时抛出错误
         let dream = try await apiClient.submitDream(request)
         pending.append(dream)
         return dream
-        } catch {
-            // 离线演示回退：本地假任务
-            let dream = Dream(title: request.title, description: request.description, status: .processing, tags: request.tags)
-            pending.append(dream)
-            return dream
-        }
     }
 
     func watchProgress(for dream: Dream) async -> AsyncThrowingStream<DreamProgressEvent, Error> {
@@ -48,20 +42,15 @@ final class DreamService: ObservableObject {
                     }
                     continuation.finish()
                 } catch {
-                    // 离线演示回退：本地进度
-                    for step in [0.2, 0.5, 0.8, 1.0] {
-                        try? await Task.sleep(nanoseconds: 600_000_000)
-                        let status: DreamStatus = step < 1.0 ? .processing : .completed
-                        continuation.yield(DreamProgressEvent(status: status, progress: step, message: status.progressMessage))
-                    }
-                    continuation.finish()
+                    // API失败时直接结束流，不显示假进度
+                    continuation.finish(throwing: error)
                 }
             }
         }
     }
 
     func reloadDream(with id: UUID) async throws -> Dream {
-        do {
+        // 只调用真实API，失败时抛出错误
         let updated = try await apiClient.pollDream(id: id)
         pending.removeAll { $0.id == id }
         completed.removeAll { $0.id == id }
@@ -71,20 +60,5 @@ final class DreamService: ObservableObject {
             completed.append(updated)
         }
         return updated
-        } catch {
-            // 离线演示回退：本地完成
-            if let existed = (pending + completed).first(where: { $0.id == id }) {
-                var updated = existed
-                updated.status = .completed
-                pending.removeAll { $0.id == id }
-                completed.removeAll { $0.id == id }
-                completed.append(updated)
-                return updated
-            } else {
-                let updated = Dream(id: id, title: "离线生成", description: "本地演示完成", status: .completed)
-                completed.append(updated)
-                return updated
-            }
-        }
     }
 }

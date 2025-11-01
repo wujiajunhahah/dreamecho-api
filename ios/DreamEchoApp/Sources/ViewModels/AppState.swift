@@ -79,8 +79,9 @@ final class AppState: ObservableObject {
 
     func refreshDreams() async {
         await dreamService.refresh()
-        pendingDreams = dreamService.pending.isEmpty ? Dream.pendingSamples : dreamService.pending
-        completedDreams = dreamService.completed.isEmpty ? Dream.showcase : dreamService.completed
+        // 只使用真实后端数据，不显示假数据
+        pendingDreams = dreamService.pending
+        completedDreams = dreamService.completed
         lastError = dreamService.lastError
     }
 }

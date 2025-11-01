@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>API_BASE_URL</key>
-	<string>https://api.dreamecho.ai</string>
+	<string>https://dreamecho-api.onrender.com</string>
 	<key>API_EVENTS_URL</key>
-	<string>https://api.dreamecho.ai</string>
+	<string>https://dreamecho-api.onrender.com</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -56,7 +56,7 @@
 		<false/>
 		<key>NSExceptionDomains</key>
 		<dict>
-			<key>api.dreamecho.ai</key>
+			<key>dreamecho-api.onrender.com</key>
 			<dict>
 				<key>NSIncludesSubdomains</key>
 				<true/>

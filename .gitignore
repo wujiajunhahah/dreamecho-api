@@ -57,4 +57,7 @@ Thumbs.db
 
 # Large media files
 static/models/*.usdz
-static/models/*.obj 
+static/models/*.obj
+
+# Render deployment scripts with API keys
+deploy_render.sh 
