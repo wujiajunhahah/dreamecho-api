@@ -23,6 +23,7 @@ from logging.handlers import RotatingFileHandler
 from werkzeug.utils import secure_filename
 import random
 import string
+import traceback
 
 # 加载环境变量
 load_dotenv()
@@ -215,38 +216,101 @@ class DreamToModelConverter:
 
             result = response.json()
             content = result["choices"][0]["message"]["content"]
+            
+            app.logger.info(f"DeepSeek API 原始返回内容: {content[:200]}...")
 
             # 从Markdown中提取JSON
             json_content = self.extract_json_from_markdown(content)
+            app.logger.info(f"提取的JSON内容: {json_content[:200]}...")
 
             # 手动解析 JSON，确保兼容性
-            analysis = json.loads(json_content)
+            try:
+                analysis = json.loads(json_content)
+            except json.JSONDecodeError as e:
+                app.logger.error(f"JSON解析失败: {str(e)}")
+                app.logger.error(f"无法解析的内容: {json_content}")
+                # 尝试修复常见的JSON问题
+                json_content_fixed = json_content.replace("'", '"')  # 单引号转双引号
+                try:
+                    analysis = json.loads(json_content_fixed)
+                except:
+                    # 如果还是失败，尝试使用ast.literal_eval
+                    import ast
+                    try:
+                        analysis = ast.literal_eval(json_content)
+                    except:
+                        raise Exception(f"无法解析JSON: {str(e)}，原始内容: {json_content[:100]}")
 
             # 验证返回字段
             required_fields = ["keywords", "symbols", "emotions", "visual_description", "interpretation"]
+            missing_fields = []
             for field in required_fields:
                 if field not in analysis:
-                    raise Exception(f"DeepSeek API 返回缺少字段: {field}")
+                    missing_fields.append(field)
+            
+            if missing_fields:
+                app.logger.warning(f"缺少字段: {missing_fields}，使用默认值")
+                # 为缺少的字段提供默认值
+                if "keywords" not in analysis:
+                    analysis["keywords"] = []
+                if "symbols" not in analysis:
+                    analysis["symbols"] = []
+                if "emotions" not in analysis:
+                    analysis["emotions"] = []
+                if "visual_description" not in analysis:
+                    analysis["visual_description"] = "梦境场景"
+                if "interpretation" not in analysis:
+                    analysis["interpretation"] = "这是一个充满想象力的梦境。"
+
+            # 确保keywords是列表格式
+            if isinstance(analysis.get("keywords"), str):
+                try:
+                    analysis["keywords"] = json.loads(analysis["keywords"])
+                except:
+                    analysis["keywords"] = [k.strip() for k in analysis["keywords"].split(",") if k.strip()]
+            
+            if not isinstance(analysis.get("keywords"), list):
+                analysis["keywords"] = []
 
             return analysis
 
         except requests.exceptions.Timeout:
-            raise
+            app.logger.error("DeepSeek API 请求超时")
+            raise Exception("DeepSeek API 请求超时，请稍后重试")
+        except KeyError as e:
+            app.logger.error(f"DeepSeek API 返回格式错误: {str(e)}")
+            raise Exception(f"DeepSeek API 返回格式错误: {str(e)}")
         except Exception as e:
-            raise
+            app.logger.error(f"提取关键词失败: {str(e)}")
+            raise Exception(f"提取关键词失败: {str(e)}")
 
     def extract_json_from_markdown(self, text):
         """从Markdown文本中提取JSON"""
         import re
+        if not text:
+            raise Exception("DeepSeek API 返回内容为空")
+        
+        # 先尝试匹配Markdown代码块
         json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
-
         if json_match:
-            return json_match.group(1)
-        else:
-            cleaned_text = text.strip()
-            if cleaned_text.startswith("```") and cleaned_text.endswith("```"):
-                cleaned_text = cleaned_text[3:-3].strip()
-            return cleaned_text
+            return json_match.group(1).strip()
+        
+        # 如果没有代码块，尝试直接查找JSON
+        cleaned_text = text.strip()
+        
+        # 移除可能的Markdown标记
+        if cleaned_text.startswith("```") and cleaned_text.endswith("```"):
+            cleaned_text = cleaned_text[3:-3].strip()
+            if cleaned_text.startswith("json"):
+                cleaned_text = cleaned_text[4:].strip()
+        
+        # 尝试找到JSON对象的开始和结束
+        json_start = cleaned_text.find('{')
+        json_end = cleaned_text.rfind('}')
+        if json_start != -1 and json_end != -1 and json_end > json_start:
+            cleaned_text = cleaned_text[json_start:json_end+1]
+        
+        return cleaned_text
 
     def generate_model_prompt(self, analysis):
         """根据分析结果生成3D模型提示词"""
@@ -405,14 +469,42 @@ class DreamToModelConverter:
             # 构建相对路径
             relative_model_path = os.path.join('models', f'user_{user_id}', model_filename)
             
+            # 确保keywords是列表格式并转换为JSON字符串
+            keywords_list = analysis.get('keywords', [])
+            if isinstance(keywords_list, str):
+                try:
+                    keywords_list = json.loads(keywords_list)
+                except:
+                    keywords_list = [k.strip() for k in keywords_list.split(",") if k.strip()]
+            if not isinstance(keywords_list, list):
+                keywords_list = []
+            
+            symbols_list = analysis.get('symbols', [])
+            if isinstance(symbols_list, str):
+                try:
+                    symbols_list = json.loads(symbols_list)
+                except:
+                    symbols_list = [s.strip() for s in symbols_list.split(",") if s.strip()]
+            if not isinstance(symbols_list, list):
+                symbols_list = []
+            
+            emotions_list = analysis.get('emotions', [])
+            if isinstance(emotions_list, str):
+                try:
+                    emotions_list = json.loads(emotions_list)
+                except:
+                    emotions_list = [e.strip() for e in emotions_list.split(",") if e.strip()]
+            if not isinstance(emotions_list, list):
+                emotions_list = []
+            
             # 返回结果字典
             result = {
                 'model_path': relative_model_path,
-                'keywords': json.dumps(analysis['keywords']),
-                'symbols': json.dumps(analysis['symbols']),
-                'emotions': json.dumps(analysis['emotions']),
-                'visual_description': analysis['visual_description'],
-                'interpretation': analysis['interpretation']
+                'keywords': json.dumps(keywords_list, ensure_ascii=False),
+                'symbols': json.dumps(symbols_list, ensure_ascii=False),
+                'emotions': json.dumps(emotions_list, ensure_ascii=False),
+                'visual_description': analysis.get('visual_description', '梦境场景'),
+                'interpretation': analysis.get('interpretation', '这是一个充满想象力的梦境。')
             }
             
             app.logger.info(f'梦境处理完成，模型路径: {relative_model_path}')
@@ -1184,12 +1276,30 @@ def api_get_dreams():
             }
             dream_status = status_mapping.get(dream.status or 'pending', 'pending')
             
+            # 从keywords提取标签
+            extracted_tags = []
+            if dream.keywords:
+                try:
+                    import json
+                    keywords_data = json.loads(dream.keywords)
+                    if isinstance(keywords_data, list):
+                        extracted_tags = keywords_data[:8]
+                    elif isinstance(keywords_data, dict) and 'keywords' in keywords_data:
+                        if isinstance(keywords_data['keywords'], list):
+                            extracted_tags = keywords_data['keywords'][:8]
+                except:
+                    pass
+            
+            # 如果keywords中没有标签，使用tags字段
+            if not extracted_tags and dream.tags:
+                extracted_tags = dream.tags.split(',')
+            
             dream_dict = {
                 'id': str(dream.id),
                 'title': dream.title,
                 'description': dream.description or dream.dream_text or '',
                 'status': dream_status,
-                'tags': dream.tags.split(',') if dream.tags else [],
+                'tags': extracted_tags,
                 'createdAt': dream.created_at.isoformat() if dream.created_at else datetime.utcnow().isoformat(),
                 'updatedAt': dream.updated_at.isoformat() if dream.updated_at else datetime.utcnow().isoformat(),
                 'previewImageURL': dream.image_url if dream.image_url else None,
@@ -1235,12 +1345,26 @@ def api_create_dream():
         import threading
         threading.Thread(target=process_dream_async, args=(description, current_user.id, new_dream.id)).start()
         
+        # 如果有关键词，从keywords字段提取标签
+        extracted_tags = []
+        if new_dream.keywords:
+            try:
+                import json
+                keywords_data = json.loads(new_dream.keywords)
+                if isinstance(keywords_data, list):
+                    extracted_tags = keywords_data[:8]  # 最多8个标签
+                elif isinstance(keywords_data, dict) and 'keywords' in keywords_data:
+                    extracted_tags = keywords_data['keywords'][:8] if isinstance(keywords_data['keywords'], list) else []
+            except:
+                # 如果解析失败，使用传入的tags
+                extracted_tags = tags
+        
         dream_response = {
             'id': str(new_dream.id),
             'title': new_dream.title,
             'description': new_dream.description,
             'status': new_dream.status,
-            'tags': tags,
+            'tags': extracted_tags if extracted_tags else tags,
             'createdAt': new_dream.created_at.isoformat(),
             'updatedAt': new_dream.updated_at.isoformat()
         }
@@ -1265,12 +1389,30 @@ def api_get_dream(dream_id):
         if not dream:
             return jsonify({'error': '梦境不存在'}), 404
         
+        # 从keywords提取标签
+        extracted_tags = []
+        if dream.keywords:
+            try:
+                import json
+                keywords_data = json.loads(dream.keywords)
+                if isinstance(keywords_data, list):
+                    extracted_tags = keywords_data[:8]
+                elif isinstance(keywords_data, dict) and 'keywords' in keywords_data:
+                    if isinstance(keywords_data['keywords'], list):
+                        extracted_tags = keywords_data['keywords'][:8]
+            except:
+                pass
+        
+        # 如果keywords中没有标签，使用tags字段
+        if not extracted_tags and dream.tags:
+            extracted_tags = dream.tags.split(',')
+        
         return jsonify({
             'id': str(dream.id),
             'title': dream.title,
             'description': dream.description or dream.dream_text or '',
             'status': 'completed' if dream.status == 'complete' else dream.status or 'pending',
-            'tags': dream.tags.split(',') if dream.tags else [],
+            'tags': extracted_tags,
             'createdAt': dream.created_at.isoformat() if dream.created_at else datetime.utcnow().isoformat(),
             'updatedAt': dream.updated_at.isoformat() if dream.updated_at else datetime.utcnow().isoformat(),
             'previewImageURL': dream.image_url if dream.image_url else None,
@@ -1283,22 +1425,59 @@ def api_get_dream(dream_id):
 def process_dream_async(description, user_id, dream_id):
     """异步处理梦境生成"""
     try:
-        dream = Dream.query.get(dream_id)
-        dream.status = 'processing'
-        db.session.commit()
-        
-        converter = DreamToModelConverter()
-        result = converter.process_dream(dream_text=description, user_id=user_id, dream_id=dream_id)
-        
-        if result and 'model_path' in result:
-            dream.model_file = result['model_path']
-            dream.status = 'complete'  # 数据库使用complete
+        with app.app_context():
+            dream = Dream.query.get(dream_id)
+            if not dream:
+                app.logger.error(f"梦境 {dream_id} 不存在")
+                return
+            
+            dream.status = 'processing'
             db.session.commit()
+            
+            converter = DreamToModelConverter()
+            result = converter.process_dream(dream_text=description, user_id=user_id, dream_id=dream_id)
+            
+            if result and 'model_path' in result:
+                # 更新所有字段
+                dream.model_file = result['model_path']
+                dream.keywords = result.get('keywords', '')
+                dream.symbols = result.get('symbols', '')
+                dream.emotions = result.get('emotions', '')
+                dream.visual_description = result.get('visual_description', '')
+                dream.interpretation = result.get('interpretation', '')
+                dream.status = 'complete'  # 数据库使用complete
+                
+                # 从keywords提取标签
+                if dream.keywords:
+                    try:
+                        import json
+                        keywords_data = json.loads(dream.keywords)
+                        if isinstance(keywords_data, list):
+                            dream.tags = ','.join(str(k) for k in keywords_data[:8])
+                        elif isinstance(keywords_data, dict) and 'keywords' in keywords_data:
+                            if isinstance(keywords_data['keywords'], list):
+                                dream.tags = ','.join(str(k) for k in keywords_data['keywords'][:8])
+                    except Exception as e:
+                        app.logger.error(f"提取标签失败: {str(e)}")
+                        app.logger.error(f"keywords内容: {dream.keywords[:100]}")
+                
+                db.session.commit()
+                app.logger.info(f"梦境 {dream_id} 处理完成")
+            else:
+                dream.status = 'failed'
+                db.session.commit()
+                app.logger.error(f"梦境 {dream_id} 处理失败：result为空或缺少model_path")
     except Exception as e:
         app.logger.error(f"异步处理梦境失败: {str(e)}")
-        dream = Dream.query.get(dream_id)
-        dream.status = 'failed'
-        db.session.commit()
+        app.logger.error(f"错误详情: {traceback.format_exc()}")
+        try:
+            with app.app_context():
+                dream = Dream.query.get(dream_id)
+                if dream:
+                    dream.status = 'failed'
+                    db.session.commit()
+        except:
+            pass
 
 @app.route('/api/dreams/<dream_id>/events', methods=['GET'])
 @login_required
